@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табулкин — Админ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body class="bg-grid">
+    <div id="main-nav"></div>
+
+    <main class="max-w-6xl mx-auto px-4 py-10">
+        <h1 class="font-display text-3xl font-bold text-fuchsia-400 glow-text mb-6">Панель администратора</h1>
+
+        <div class="flex flex-wrap gap-2 mb-8 border-b border-cyan-500/20 pb-2">
+            <button id="tab-products" onclick="switchAdminTab('products')" class="admin-tab px-4 py-2 font-bold text-cyan-400 border-b-2 border-cyan-400">Товары</button>
+            <button id="tab-active" onclick="switchAdminTab('active')" class="admin-tab px-4 py-2 font-bold text-slate-500">Активные заказы</button>
+            <button id="tab-history" onclick="switchAdminTab('history')" class="admin-tab px-4 py-2 font-bold text-slate-500">История заказов</button>
+        </div>
+
+        <div id="panel-products">
+            <section class="glass rounded-2xl p-6 mb-10">
+                <h2 class="font-display text-xl text-cyan-400 mb-4">Новый товар</h2>
+                <form id="form-product" onsubmit="createProduct(event)" class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-slate-400 text-sm">Название</label>
+                        <input name="name" required class="w-full px-4 py-2 rounded-lg mt-1">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm">Цена (BYN)</label>
+                        <input name="price" type="number" step="0.01" min="0.01" required class="w-full px-4 py-2 rounded-lg mt-1">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm">Остаток</label>
+                        <input name="stock" type="number" min="0" value="0" required class="w-full px-4 py-2 rounded-lg mt-1">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm">Категория</label>
+                        <select name="categoryId" id="admin-categories-new" class="w-full px-4 py-2 rounded-lg mt-1">
+                            <option value="">Без категории</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="text-slate-400 text-sm">Описание</label>
+                        <textarea name="description" rows="2" class="w-full px-4 py-2 rounded-lg mt-1"></textarea>
+                    </div>
+                    <button type="submit" class="btn-neon sm:col-span-2 py-2 rounded-lg font-bold">Добавить товар</button>
+                </form>
+            </section>
+            <section class="glass rounded-2xl p-6">
+                <h2 class="font-display text-xl text-cyan-400 mb-4">Редактирование товаров</h2>
+                <div id="admin-products" class="space-y-6"><p class="text-slate-500">Загрузка...</p></div>
+            </section>
+        </div>
+
+        <div id="panel-active" class="hidden">
+            <div id="admin-active-orders"><p class="text-slate-500">Загрузка...</p></div>
+        </div>
+
+        <div id="panel-history" class="hidden">
+            <div id="admin-history-orders"><p class="text-slate-500">Загрузка...</p></div>
+        </div>
+    </main>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/nav.js"></script>
+    <script src="/js/orders.js"></script>
+    <script>
+        renderNav('admin');
+        let categories = [];
+
+        if (!Auth.isLoggedIn()) {
+            location.href = '/account.html?redirect=/admin.html';
+        } else if (!Auth.requireAdmin()) {
+            /* handled */
+        } else {
+            initAdmin();
+        }
+
+        async function initAdmin() {
+            categories = await API.getCategories();
+            ['admin-categories-new'].forEach(id => {
+                const sel = document.getElementById(id);
+                categories.forEach(c => {
+                    const o = document.createElement('option');
+                    o.value = c.id;
+                    o.textContent = c.name;
+                    sel.appendChild(o);
+                });
+            });
+            loadAdminProducts();
+        }
+
+        function switchAdminTab(tab) {
+            ['products', 'active', 'history'].forEach(t => {
+                document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById('tab-' + t);
+                btn.className = 'admin-tab px-4 py-2 font-bold ' +
+                    (t === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500');
+            });
+            if (tab === 'active') loadActiveOrders();
+            if (tab === 'history') loadHistoryOrders();
+        }
+
+        async function loadAdminProducts() {
+            const el = document.getElementById('admin-products');
+            try {
+                const page = await API.getProducts();
+                const products = page.content || page;
+                if (!products.length) {
+                    el.innerHTML = '<p class="text-slate-500">Нет товаров</p>';
+                    return;
+                }
+                el.innerHTML = products.map(p => `
+                    <form class="glass rounded-xl p-5 border border-cyan-500/10" onsubmit="saveProduct(event, ${p.id})">
+                        <p class="text-slate-500 text-sm mb-3">ID: ${p.id}</p>
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-slate-400 text-sm">Наименование</label>
+                                <input name="name" value="${escapeAttr(p.name)}" required class="w-full px-4 py-2 rounded-lg mt-1">
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">Цена (BYN)</label>
+                                <input name="price" type="number" step="0.01" min="0.01" value="${p.price}" required class="w-full px-4 py-2 rounded-lg mt-1">
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">Остаток</label>
+                                <input name="stock" type="number" min="0" value="${p.stock}" required class="w-full px-4 py-2 rounded-lg mt-1">
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">Категория</label>
+                                <select name="categoryId" class="w-full px-4 py-2 rounded-lg mt-1">
+                                    <option value="">Без категории</option>
+                                    ${categories.map(c => `<option value="${c.id}" ${p.categoryId == c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="text-slate-400 text-sm">Описание</label>
+                                <textarea name="description" rows="2" class="w-full px-4 py-2 rounded-lg mt-1">${escapeHtml(p.description || '')}</textarea>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-4">
+                            <button type="submit" class="btn-neon px-5 py-2 rounded-lg font-bold text-sm">Сохранить</button>
+                            <button type="button" onclick="deleteProduct(${p.id})" class="text-rose-400 text-sm hover:text-rose-300">Удалить</button>
+                        </div>
+                    </form>
+                `).join('');
+            } catch (e) {
+                el.innerHTML = `<p class="text-rose-400">${e.message}</p>`;
+            }
+        }
+
+        async function saveProduct(e, id) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = {
+                name: fd.get('name'),
+                description: fd.get('description') || '',
+                price: parseFloat(fd.get('price')),
+                stock: parseInt(fd.get('stock'), 10),
+                categoryId: fd.get('categoryId') ? parseInt(fd.get('categoryId'), 10) : null
+            };
+            try {
+                await API.updateProduct(id, data);
+                showToast('Товар обновлён', 'success');
+                loadAdminProducts();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function createProduct(e) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = {
+                name: fd.get('name'),
+                description: fd.get('description') || '',
+                price: parseFloat(fd.get('price')),
+                stock: parseInt(fd.get('stock'), 10),
+                categoryId: fd.get('categoryId') ? parseInt(fd.get('categoryId'), 10) : null
+            };
+            try {
+                await API.createProduct(data);
+                showToast('Товар добавлен!', 'success');
+                e.target.reset();
+                loadAdminProducts();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm('Удалить товар #' + id + '?')) return;
+            try {
+                await API.deleteProduct(id);
+                showToast('Товар удалён', 'info');
+                loadAdminProducts();
+            } catch (e) { showToast(e.message, 'error'); }
+        }
+
+        async function loadActiveOrders() {
+            const el = document.getElementById('admin-active-orders');
+            try {
+                const orders = await API.getAdminActiveOrders();
+                if (!orders.length) {
+                    el.innerHTML = '<p class="text-slate-500 glass rounded-xl p-6 text-center">Нет активных заказов</p>';
+                    return;
+                }
+                el.innerHTML = orders.map(o => renderOrderCard(o, { showUser: true, allowStatusChange: true })).join('');
+            } catch (e) { el.innerHTML = `<p class="text-rose-400">${e.message}</p>`; }
+        }
+
+        async function loadHistoryOrders() {
+            const el = document.getElementById('admin-history-orders');
+            try {
+                const orders = await API.getAdminOrderHistory();
+                if (!orders.length) {
+                    el.innerHTML = '<p class="text-slate-500 glass rounded-xl p-6 text-center">История пуста</p>';
+                    return;
+                }
+                el.innerHTML = orders.map(o => renderOrderCard(o, { showUser: true, allowStatusChange: true })).join('');
+            } catch (e) { el.innerHTML = `<p class="text-rose-400">${e.message}</p>`; }
+        }
+
+        async function saveOrderStatus(id) {
+            const status = document.getElementById('status-' + id).value;
+            try {
+                await API.updateOrderStatus(id, status);
+                showToast('Статус обновлён', 'success');
+                loadActiveOrders();
+                loadHistoryOrders();
+            } catch (e) { showToast(e.message, 'error'); }
+        }
+
+        function escapeHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        function escapeAttr(t) {
+            return String(t).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+    </script>
+</body>
+</html>

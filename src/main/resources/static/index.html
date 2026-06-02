@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табулкин — Главная</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body class="bg-grid">
+    <div id="main-nav"></div>
+
+    <main class="flex flex-col items-center justify-center min-h-[75vh] px-4 text-center">
+        <img src="/images/java-logo.svg" alt="Java" class="w-28 h-28 sm:w-36 sm:h-36 mb-10 drop-shadow-[0_0_25px_rgba(247,152,32,0.5)]">
+        <h1 class="font-display text-2xl sm:text-4xl font-bold glow-text leading-relaxed max-w-3xl">
+            Добро пожаловать в интернет магазин Табулкин
+        </h1>
+    </main>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/nav.js"></script>
+    <script src="/js/orders.js"></script>
+    <script>renderNav('home');</script>
+</body>
+</html>

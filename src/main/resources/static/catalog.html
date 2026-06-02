@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табулкин — Каталог</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body class="bg-grid">
+    <div id="main-nav"></div>
+
+    <main class="max-w-6xl mx-auto px-4 py-10">
+        <h1 class="font-display text-3xl font-bold text-cyan-400 glow-text mb-8">Каталог товаров</h1>
+
+        <div class="glass rounded-xl p-4 mb-8 flex flex-wrap gap-4">
+            <input type="text" id="search" placeholder="Поиск по названию..."
+                   class="flex-1 min-w-[200px] px-4 py-2 rounded-lg">
+            <select id="category-filter" class="px-4 py-2 rounded-lg min-w-[180px]">
+                <option value="">Все категории</option>
+            </select>
+            <button onclick="loadProducts()" class="btn-neon px-6 py-2 rounded-lg font-bold">Найти</button>
+        </div>
+
+        <div id="products" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <p class="text-slate-500 col-span-full text-center py-12">Загрузка...</p>
+        </div>
+    </main>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/nav.js"></script>
+    <script>
+        renderNav('catalog');
+
+        async function loadCategories() {
+            const cats = await API.getCategories();
+            const sel = document.getElementById('category-filter');
+            cats.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        async function loadProducts() {
+            const container = document.getElementById('products');
+            const name = document.getElementById('search').value.trim();
+            const categoryId = document.getElementById('category-filter').value;
+            const params = {};
+            if (name) params.name = name;
+            if (categoryId) params.categoryId = categoryId;
+
+            try {
+                const page = await API.getProducts(params);
+                const products = page.content || page;
+                if (!products.length) {
+                    container.innerHTML = '<p class="text-slate-500 col-span-full text-center py-12">Товары не найдены</p>';
+                    return;
+                }
+                container.innerHTML = products.map(p => `
+                    <article class="glass rounded-2xl p-6 card-product transition-all duration-300 flex flex-col">
+                        <div class="h-32 rounded-lg bg-gradient-to-br from-cyan-900/40 to-purple-900/40 mb-4 flex items-center justify-center text-5xl">📦</div>
+                        <h3 class="font-display text-lg text-cyan-300 mb-1">${escapeHtml(p.name)}</h3>
+                        <p class="text-slate-500 text-sm flex-grow mb-3 line-clamp-2">${escapeHtml(p.description || '')}</p>
+                        <p class="text-fuchsia-400 font-bold text-2xl mb-1">${formatPrice(p.price)}</p>
+                        <p class="text-slate-500 text-sm mb-4">На складе: <span class="text-cyan-400">${p.stock}</span> шт.</p>
+                        ${p.categoryName ? `<span class="text-xs text-purple-400 mb-4">${escapeHtml(p.categoryName)}</span>` : ''}
+                        <button onclick="addToCart(${p.id})"
+                                class="btn-neon w-full py-2 rounded-lg font-bold mt-auto ${p.stock < 1 ? 'opacity-50 cursor-not-allowed' : ''}"
+                                ${p.stock < 1 ? 'disabled' : ''}>
+                            ${p.stock < 1 ? 'Нет в наличии' : 'В корзину'}
+                        </button>
+                    </article>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<p class="text-rose-400 col-span-full text-center">${e.message}</p>`;
+            }
+        }
+
+        async function addToCart(productId) {
+            if (!Auth.isLoggedIn()) {
+                showToast('Войдите в личный кабинет', 'error');
+                setTimeout(() => location.href = '/account.html?redirect=/catalog.html', 1500);
+                return;
+            }
+            try {
+                await API.addToCart(productId);
+                showToast('Товар добавлен в корзину!', 'success');
+                updateCartBadge();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        loadCategories().then(loadProducts);
+        document.getElementById('search').addEventListener('keypress', e => { if (e.key === 'Enter') loadProducts(); });
+    </script>
+</body>
+</html>

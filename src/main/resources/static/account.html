@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табулкин — Личный кабинет</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body class="bg-grid">
+    <div id="main-nav"></div>
+
+    <main class="max-w-2xl mx-auto px-4 py-10">
+        <h1 class="font-display text-3xl font-bold text-cyan-400 glow-text mb-8 text-center">Личный кабинет</h1>
+        <div id="account-content"></div>
+    </main>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/nav.js"></script>
+    <script src="/js/orders.js"></script>
+    <script>
+        renderNav('account');
+        const params = new URLSearchParams(location.search);
+        const redirect = params.get('redirect') || '/index.html';
+
+        if (Auth.isLoggedIn()) {
+            showProfile();
+        } else {
+            showAuthForms();
+        }
+
+        function showProfile() {
+            const user = Auth.getUser();
+            document.getElementById('account-content').innerHTML = `
+                <div class="glass rounded-2xl p-8 text-center mb-8">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-3xl font-display font-bold">
+                        ${user.username[0].toUpperCase()}
+                    </div>
+                    <h2 class="font-display text-xl text-cyan-300 mb-1">${escapeHtml(user.username)}</h2>
+                    <p class="text-slate-500 mb-6">Роль: <span class="text-fuchsia-400">${user.role}</span></p>
+                    <button onclick="Auth.logout()" class="glass px-6 py-2 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-900/20 w-full mb-3">
+                        Выйти
+                    </button>
+                    <a href="/catalog.html" class="btn-neon block py-2 rounded-lg font-bold">Перейти в каталог</a>
+                </div>
+                <section>
+                    <h2 class="font-display text-xl text-cyan-400 mb-4">История заказов</h2>
+                    <div id="order-history"><p class="text-slate-500">Загрузка...</p></div>
+                </section>`;
+            loadOrderHistory();
+        }
+
+        async function loadOrderHistory() {
+            const el = document.getElementById('order-history');
+            try {
+                const orders = await API.getMyOrders();
+                if (!orders.length) {
+                    el.innerHTML = '<p class="text-slate-500 glass rounded-xl p-6 text-center">Заказов пока нет</p>';
+                    return;
+                }
+                el.innerHTML = orders.map(o => renderOrderCard(o)).join('');
+            } catch (e) {
+                el.innerHTML = `<p class="text-rose-400">${e.message}</p>`;
+            }
+        }
+
+        function showAuthForms() {
+            document.getElementById('account-content').innerHTML = `
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex mb-6 border-b border-cyan-500/20">
+                        <button id="tab-login" onclick="switchTab('login')" class="flex-1 py-2 font-bold text-cyan-400 border-b-2 border-cyan-400">Вход</button>
+                        <button id="tab-register" onclick="switchTab('register')" class="flex-1 py-2 font-bold text-slate-500">Регистрация</button>
+                    </div>
+                    <form id="form-login" onsubmit="doLogin(event)">
+                        <label class="block text-slate-400 text-sm mb-1">Ник</label>
+                        <input name="username" required class="w-full px-4 py-2 rounded-lg mb-4" placeholder="username">
+                        <label class="block text-slate-400 text-sm mb-1">Пароль</label>
+                        <input name="password" type="password" required class="w-full px-4 py-2 rounded-lg mb-6" placeholder="••••••">
+                        <button type="submit" class="btn-neon w-full py-2 rounded-lg font-bold">Войти</button>
+                    </form>
+                    <form id="form-register" class="hidden" onsubmit="doRegister(event)">
+                        <label class="block text-slate-400 text-sm mb-1">Ник</label>
+                        <input name="username" required minlength="3" class="w-full px-4 py-2 rounded-lg mb-4" placeholder="username">
+                        <label class="block text-slate-400 text-sm mb-1">Почта</label>
+                        <input name="email" type="email" required class="w-full px-4 py-2 rounded-lg mb-4" placeholder="email@example.com">
+                        <label class="block text-slate-400 text-sm mb-1">Пароль</label>
+                        <input name="password" type="password" required minlength="6" class="w-full px-4 py-2 rounded-lg mb-6" placeholder="мин. 6 символов">
+                        <button type="submit" class="btn-neon w-full py-2 rounded-lg font-bold">Зарегистрироваться</button>
+                    </form>
+                </div>
+                <p class="text-center text-slate-600 text-sm mt-4">Админ: admin / admin123</p>`;
+        }
+
+        function switchTab(tab) {
+            document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+            document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+            document.getElementById('tab-login').className = 'flex-1 py-2 font-bold ' + (tab === 'login' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500');
+            document.getElementById('tab-register').className = 'flex-1 py-2 font-bold ' + (tab === 'register' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500');
+        }
+
+        async function doLogin(e) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                const auth = await API.login({ username: fd.get('username'), password: fd.get('password') });
+                Auth.save(auth);
+                showToast('Добро пожаловать!', 'success');
+                location.href = redirect;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function doRegister(e) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                const auth = await API.register({
+                    username: fd.get('username'),
+                    email: fd.get('email'),
+                    password: fd.get('password')
+                });
+                Auth.save(auth);
+                showToast('Регистрация успешна!', 'success');
+                location.href = redirect;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function escapeHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+    </script>
+</body>
+</html>

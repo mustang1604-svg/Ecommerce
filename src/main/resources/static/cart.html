@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табулкин — Корзина</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body class="bg-grid">
+    <div id="main-nav"></div>
+
+    <main class="max-w-4xl mx-auto px-4 py-10">
+        <h1 class="font-display text-3xl font-bold text-cyan-400 glow-text mb-8">Корзина</h1>
+        <div id="cart-content"></div>
+    </main>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/nav.js"></script>
+    <script>
+        renderNav('cart');
+
+        if (!Auth.requireLogin('/cart.html')) {
+            document.getElementById('cart-content').innerHTML = `
+                <div class="glass rounded-2xl p-8 text-center">
+                    <p class="text-slate-400 mb-4">Для корзины нужна авторизация</p>
+                    <a href="/account.html" class="btn-neon inline-block px-6 py-2 rounded-lg font-bold">Войти</a>
+                </div>`;
+        } else {
+            loadCart();
+        }
+
+        async function loadCart() {
+            const el = document.getElementById('cart-content');
+            try {
+                const cart = await API.getCart();
+                if (!cart.items || !cart.items.length) {
+                    el.innerHTML = `
+                        <div class="glass rounded-2xl p-12 text-center">
+                            <p class="text-slate-400 text-xl mb-6">Корзина пуста</p>
+                            <a href="/catalog.html" class="btn-neon inline-block px-6 py-2 rounded-lg font-bold">В каталог</a>
+                        </div>`;
+                    return;
+                }
+
+                el.innerHTML = `
+                    <div class="space-y-4 mb-8">
+                        ${cart.items.map(item => `
+                            <div class="glass rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="font-display text-cyan-300">${escapeHtml(item.productName)}</h3>
+                                    <p class="text-slate-500">${formatPrice(item.price)} × ${item.quantity}</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <button onclick="changeQty(${item.id}, ${item.quantity - 1})"
+                                            class="w-10 h-10 rounded-lg glass text-cyan-400 font-bold hover:bg-cyan-900/30">−</button>
+                                    <span class="text-xl font-bold w-8 text-center">${item.quantity}</span>
+                                    <button onclick="changeQty(${item.id}, ${item.quantity + 1})"
+                                            class="w-10 h-10 rounded-lg glass text-cyan-400 font-bold hover:bg-cyan-900/30">+</button>
+                                    <button onclick="removeItem(${item.id})"
+                                            class="ml-4 text-rose-400 hover:text-rose-300 text-sm">Удалить</button>
+                                </div>
+                                <p class="text-fuchsia-400 font-bold text-lg">${formatPrice(item.subtotal)}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="glass rounded-2xl p-6 mb-6">
+                        <h2 class="font-display text-lg text-cyan-400 mb-4">Данные для доставки</h2>
+                        <form id="checkout-form" class="space-y-4" onsubmit="checkout(event)">
+                            <div>
+                                <label class="text-slate-400 text-sm">Телефон <span class="text-rose-400">*</span></label>
+                                <input type="tel" id="phone" name="phone" required
+                                       pattern="[+]?[0-9\s\-()]{10,20}"
+                                       placeholder="+7 (999) 123-45-67"
+                                       class="w-full px-4 py-2 rounded-lg mt-1">
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">Адрес <span class="text-slate-600">(необязательно)</span></label>
+                                <input type="text" id="address" name="address" maxlength="500"
+                                       placeholder="Город, улица, дом, квартира"
+                                       class="w-full px-4 py-2 rounded-lg mt-1">
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">Комментарий <span class="text-slate-600">(необязательно)</span></label>
+                                <textarea id="comment" name="comment" rows="2" maxlength="1000"
+                                          placeholder="Пожелания к заказу"
+                                          class="w-full px-4 py-2 rounded-lg mt-1"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="glass rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">
+                        <div>
+                            <p class="text-slate-400">Итого</p>
+                            <p class="font-display text-3xl text-cyan-400">${formatPrice(cart.totalPrice)}</p>
+                        </div>
+                        <button type="submit" form="checkout-form" class="btn-neon px-8 py-3 rounded-lg font-bold text-lg">
+                            Оформить заказ
+                        </button>
+                    </div>`;
+            } catch (e) {
+                el.innerHTML = `<p class="text-rose-400">${e.message}</p>`;
+            }
+        }
+
+        async function changeQty(id, qty) {
+            if (qty < 1) return removeItem(id);
+            try {
+                await API.updateCartItem(id, qty);
+                loadCart();
+                updateCartBadge();
+            } catch (e) { showToast(e.message, 'error'); }
+        }
+
+        async function removeItem(id) {
+            try {
+                await API.removeFromCart(id);
+                loadCart();
+                updateCartBadge();
+                showToast('Удалено', 'info');
+            } catch (e) { showToast(e.message, 'error'); }
+        }
+
+        async function checkout(e) {
+            e.preventDefault();
+            const phone = document.getElementById('phone').value.trim();
+            const address = document.getElementById('address').value.trim();
+            const comment = document.getElementById('comment').value.trim();
+
+            if (!phone) {
+                showToast('Укажите телефон', 'error');
+                return;
+            }
+
+            try {
+                const order = await API.checkout({
+                    phone,
+                    address: address || null,
+                    comment: comment || null
+                });
+                showToast('Заказ #' + order.id + ' оформлен!', 'success');
+                loadCart();
+                updateCartBadge();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function escapeHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+    </script>
+</body>
+</html>

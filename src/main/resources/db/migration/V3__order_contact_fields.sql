@@ -1,0 +1,7 @@
+ALTER TABLE orders ADD COLUMN phone VARCHAR(20);
+ALTER TABLE orders ADD COLUMN address VARCHAR(500);
+ALTER TABLE orders ADD COLUMN comment TEXT;
+
+UPDATE orders SET phone = '-' WHERE phone IS NULL;
+
+ALTER TABLE orders ALTER COLUMN phone SET NOT NULL;

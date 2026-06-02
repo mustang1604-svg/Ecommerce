@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+:root {
+    --neon-cyan: #22d3ee;
+    --neon-purple: #c084fc;
+    --neon-pink: #f472b6;
+    --bg-deep: #030712;
+}
+
+body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg-deep);
+    color: #e2e8f0;
+    min-height: 100vh;
+}
+
+.font-display { font-family: 'Orbitron', sans-serif; }
+
+.bg-grid {
+    background-image:
+        linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+.glass {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.08);
+}
+
+.glow-text {
+    text-shadow: 0 0 20px rgba(34, 211, 238, 0.6), 0 0 40px rgba(192, 132, 252, 0.3);
+}
+
+.btn-neon {
+    background: linear-gradient(135deg, #0891b2, #7c3aed);
+    transition: all 0.25s;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+}
+
+.btn-neon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.55), 0 0 50px rgba(192, 132, 252, 0.25);
+}
+
+.card-product:hover {
+    border-color: rgba(34, 211, 238, 0.6);
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.2);
+    transform: translateY(-4px);
+}
+
+.nav-link.active {
+    color: var(--neon-cyan);
+    border-bottom: 2px solid var(--neon-cyan);
+}
+
+input, select, textarea {
+    background: rgba(15, 23, 42, 0.9) !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    color: #e2e8f0 !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
+}
+
+.toast {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pulse-ring {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
