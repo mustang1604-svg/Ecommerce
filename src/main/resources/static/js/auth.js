@@ -7,6 +7,7 @@ const Auth = {
         localStorage.setItem(this.USER_KEY, JSON.stringify({
             userId: auth.userId,
             username: auth.username,
+            email: auth.email || null,
             role: auth.role
         }));
     },
